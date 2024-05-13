@@ -1414,3 +1414,29 @@ def test_toolchain_and_compilers_build_context():
     })
     client.run("export tool")
     client.run("create consumer -pr:h host -pr:b build --build=missing")
+
+
+def test_toolchain_extra_variables():
+    windows_profile = textwrap.dedent("""
+        [settings]
+        os=Windows
+        arch=x86_64
+        [conf]
+        tools.cmake.cmaketoolchain:extra_variables={'CMAKE_GENERATOR_INSTANCE': 'C:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/', 'FOO': 'bar'}
+        """)
+
+    client = TestClient(path_with_spaces=False)
+    client.save({"conanfile.txt": "[generators]\nCMakeToolchain",
+                 "windows": windows_profile})
+
+    # Test passing extra_variables from profile
+    client.run("install . --profile:build=windows --profile:host=windows")
+    toolchain = client.load("conan_toolchain.cmake")
+    assert 'set(CMAKE_GENERATOR_INSTANCE "C:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/")' in toolchain
+    assert 'set(FOO "bar")' in toolchain
+
+    # Test input from command line passing dict between doble quotes
+    client.run("install . -c tools.cmake.cmaketoolchain:extra_variables=\"{'CMAKE_GENERATOR_INSTANCE': 'C:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/', 'FOO': 'bar'}\"")
+    toolchain = client.load("conan_toolchain.cmake")
+    assert 'set(CMAKE_GENERATOR_INSTANCE "C:/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/")' in toolchain
+    assert 'set(FOO "bar")' in toolchain
